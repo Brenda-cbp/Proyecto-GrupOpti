@@ -1,0 +1,140 @@
+!@encoding CP1252
+model ModelName
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+	parameters
+		inputFile="Parametros.txt"
+		outputfile="Resultados.txt"
+	end-parameters
+	
+	declarations
+		!Conjuntos
+			M:set of string 			!Conjunto de Máquinas. 
+			O:set of string				!Conjunto de Obras.
+			D=1..25						!Conjunto de días.
+			N:dynamic array(O)of set of string	!Subconjunto de máquinas que se deben utilizar antes de la máquina 7 en la obra o en O.
+	
+		!Parámetros
+			
+			t:dynamic array(O)of integer		!Tiempo estipulado de finalización de la obra o en O.
+			p:dynamic array(M,O)of integer		!Número de días en que se necesita la máquina m en M en la obra o en O.
+			c:dynamic array(O)of integer		!Costo diario por retraso de la obra o en O.
+					
+		!Variables de decisión
+	
+			x:array(M,O,D)of mpvar 		!Toma el valor de 1 si se asigna la máquina m en M a la obra o en O en el día d en D. 0 dlc.
+			y:array(O)of mpvar			!Número de días de retraso de la obra o en O.
+			z:array(M,O,D)of mpvar		!Toma el valor de 1 si la máquina m en M empieza a operar en la obra o en O el día d en D. 0 dlc.
+	end-declarations
+	
+	!Inicializar parámetros
+	initializations from inputFile
+		t p c N
+	end-initializations
+	
+	!Creación de variables
+		forall(m in M, o in O, d in D)do
+			x(m,o,d)is_binary
+			z(m,o,d)is_binary
+		end-do
+		
+		forall(o in O)do
+			y(o)is_integer
+		end-do
+
+    !Restricciones
+    !Se debe utilizar cierta cantidad de d?as cada m?quina en cada obra
+    forall(o in O, m in M)
+    sum(d in D)x(m,o,d)=p(m,o)
+
+	!En un d?a no se puede usar la misma m?quina m?s de una vez
+    forall(m in M, d in D)
+    sum(o in O)x(m,o,d)<=1
+
+    !La m?quina 7 debe ser la ?ltima en asignarse en cada obra
+    forall(d in D, o in O)
+    getsize(N(o))*z("M7",o,d)<=sum(r in 1 ..d-1,k in N(o))z(k,o,r)
+
+    !Las m?quinas deben usarse continuamente(deben durar en cada obra los d?as que se necesitan)
+    forall(o in O, m in M, d in D|d<=getsize(D)-p(m,o)+1)
+    sum(h in d..d+p(m,o)-1)x(m,o,h)>=p(m,o)*z(m,o,d)
+
+    !Asignar valor a la variable de retrasos
+    forall(o in O, m in M)
+    y(o)=sum(d in D)z("M7",o,d)*(d+p("M7",o))-t(o)
+
+    !Solo se puede trabajar una m?quina a la vez en cada obra
+    forall(o in O, d in D)
+    sum(m in M)x(m,o,d)<=1
+
+    !Todas las obras deben hacerse
+    forall(o in O)
+    sum(d in D)z("M7",o,d)=1
+
+!Funci?n objetivo
+    FO:=sum(o in O)y(o)
+    minimize(FO)
+
+!Impresi?n
+    !Se deben sumar en los valores positivos de y
+    writeln("CostoReducido: ",sum(o in O|getsol(y(o))>=0)getsol(y(o))*c(o))
+    write("0|")
+    forall(d in D)do
+        write(d,"|")
+    end-do
+    writeln("")
+    forall(o in O|t(o)>0)do
+        write(o,"|")
+        forall(d in D)do
+            forall(m in M)do
+            if (getsol(x(m,o,d))=1) then
+                write(m,"|")
+            end-if
+        end-do
+        if(sum(m in M)getsol(x(m,o,d))=0) then
+            write("-|")
+        end-if
+        end-do
+        writeln("")
+    end-do
+    writeln("Costo de retraso por obra")
+    forall(o in O | t(o)>0)do
+        if getsol(y(o))>0 then
+            writeln(o, "|", getsol(y(o))*c(o))
+        else
+            writeln(o,"|",0)
+        end-if
+    end-do
+
+ 	!Impresión en archivo txt
+ 	fopen(outputfile, F_OUTPUT)
+    writeln("CostoReducido: ",sum(o in O|getsol(y(o))>=0)getsol(y(o))*c(o))
+    write("0|")
+    forall(d in D)do
+        write(d,"|")
+    end-do
+    writeln("")
+    forall(o in O|t(o)>0)do
+        write(o,"|")
+        forall(d in D)do
+            forall(m in M)do
+            if (getsol(x(m,o,d))=1) then
+                write(m,"|")
+            end-if
+        end-do
+        if(sum(m in M)getsol(x(m,o,d))=0) then
+            write("-|")
+        end-if
+        end-do
+        writeln("")
+    end-do
+    writeln("Costo de retraso por obra")
+    forall(o in O | t(o)>0)do
+        if getsol(y(o))>0 then
+            writeln(o, "|", getsol(y(o))*c(o))
+        else
+            writeln(o,"|",0)
+        end-if
+    end-do
+
+end-model
