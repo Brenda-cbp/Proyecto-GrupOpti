@@ -1,5 +1,5 @@
 # Proyecto-GrupOpti
 
-Sara Daniela Paz Méndez /n
-Brenda Catalina Barahona Pinilla 
-Karen Dayana Culma Ramírez 
+#### Sara Daniela Paz Méndez
+#### Brenda Catalina Barahona Pinilla 
+#### Karen Dayana Culma Ramírez 
